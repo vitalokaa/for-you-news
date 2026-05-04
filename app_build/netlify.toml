@@ -1,0 +1,12 @@
+[build]
+  # Perintah yang dijalankan untuk mem-build aplikasi web dari React Native Expo
+  command = "npx expo export -p web"
+  
+  # Direktori output hasil build yang akan di-hosting oleh Netlify
+  publish = "dist"
+
+# Konfigurasi routing untuk aplikasi SPA (Single Page Application)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

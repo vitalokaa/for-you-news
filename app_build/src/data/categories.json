@@ -1,0 +1,70 @@
+[
+  {
+    "id": "cat-1",
+    "name": "Politics"
+  },
+  {
+    "id": "cat-2",
+    "name": "Business"
+  },
+  {
+    "id": "cat-3",
+    "name": "World News"
+  },
+  {
+    "id": "cat-4",
+    "name": "Lifestyle"
+  },
+  {
+    "id": "cat-5",
+    "name": "Sports"
+  },
+  {
+    "id": "cat-6",
+    "name": "Entertainment"
+  },
+  {
+    "id": "cat-7",
+    "name": "Environment"
+  },
+  {
+    "id": "cat-8",
+    "name": "Opinion"
+  },
+  {
+    "id": "cat-9",
+    "name": "The filter"
+  },
+  {
+    "id": "cat-10",
+    "name": "Society"
+  },
+  {
+    "id": "cat-11",
+    "name": "Technology"
+  },
+  {
+    "id": "cat-12",
+    "name": "Travel"
+  },
+  {
+    "id": "cat-13",
+    "name": "Stage"
+  },
+  {
+    "id": "cat-14",
+    "name": "Books"
+  },
+  {
+    "id": "cat-15",
+    "name": "The filter us"
+  },
+  {
+    "id": "cat-16",
+    "name": "Education"
+  },
+  {
+    "id": "cat-17",
+    "name": "Football"
+  }
+]
