@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "ara-compiler": {
+      "source": "Orchestra-Research/AI-Research-SKILLs",
+      "sourceType": "github",
+      "skillPath": "22-agent-native-research-artifact/compiler/SKILL.md",
+      "computedHash": "56210fc3ce11e1a3d206614704850535aa33a317fc8c54c81a5ae993b2a3da2b"
+    },
+    "ara-research-manager": {
+      "source": "Orchestra-Research/AI-Research-SKILLs",
+      "sourceType": "github",
+      "skillPath": "22-agent-native-research-artifact/research-manager/SKILL.md",
+      "computedHash": "0681558806be98d24a5b15959e4a83b3c26ebfc57c5c0f103354bfc64ea7859b"
+    },
+    "ara-rigor-reviewer": {
+      "source": "Orchestra-Research/AI-Research-SKILLs",
+      "sourceType": "github",
+      "skillPath": "22-agent-native-research-artifact/rigor-reviewer/SKILL.md",
+      "computedHash": "4e66cafcd23edad7e1ebdb4b9dd97b53674be8cc78520f31b819f011519e12ff"
+    },
+    "deploy-to-vercel": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/deploy-to-vercel/SKILL.md",
+      "computedHash": "03e0eaaa9bf13ba1e7ffa387f5893de6f324c0868c627001f179395a8feaa7c9"
+    },
+    "ui-ux-pro-max": {
+      "source": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/ui-ux-pro-max/SKILL.md",
+      "computedHash": "0a413bf988d06481f69bb81df2070741c3ba12dd9f1be2706d57f259c905992d"
+    }
+  }
+}
