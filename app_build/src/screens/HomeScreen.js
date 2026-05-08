@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, SafeAreaView, StatusBar,
+  RefreshControl, SafeAreaView, StatusBar, ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme';
@@ -15,13 +15,26 @@ import { FeedSkeleton } from '../components/SkeletonLoader';
 export default function HomeScreen({ navigation }) {
   const { colors, spacing, shadows } = useTheme();
   const { categoryScores, interactions, selectedCategories, trackClick, requestBookmark, markNotInterested, isDarkMode, toggleDarkMode } = useUserStore();
-  const { articles, isLoading, isRefreshing, error, activeTab, setActiveTab, fetchNews, refreshFeed, getForYou, getPopular, getLatest } = useNewsStore();
+  const { 
+    articles, isLoading, isRefreshing, error, activeTab, setActiveTab, 
+    fetchNews, refreshFeed, loadMoreNews, checkNewItems,
+    newItemsAvailable, newArticlesCount, isFetchingMore, hasMore,
+    getForYou, getPopular, getLatest 
+  } = useNewsStore();
   const flatListRef = useRef(null);
 
   // Initial fetch
   useEffect(() => {
     fetchNews(categoryScores, interactions);
   }, []);
+
+  // Poll for new articles
+  useEffect(() => {
+    const interval = setInterval(() => {
+      checkNewItems();
+    }, 15000); // Check every 15 seconds
+    return () => clearInterval(interval);
+  }, [checkNewItems]);
 
   // Get filtered + ranked articles based on active tab
   const feedArticles = useMemo(() => {
@@ -53,6 +66,17 @@ export default function HomeScreen({ navigation }) {
   const handleRefresh = useCallback(() => {
     refreshFeed(categoryScores, interactions);
   }, [categoryScores, interactions]);
+
+  const handleLoadMore = useCallback(() => {
+    if (!isFetchingMore && hasMore) {
+      loadMoreNews(categoryScores, interactions);
+    }
+  }, [isFetchingMore, hasMore, loadMoreNews, categoryScores, interactions]);
+
+  const handleNewItemsClick = useCallback(() => {
+    refreshFeed(categoryScores, interactions);
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, [refreshFeed, categoryScores, interactions]);
 
   // ── List render helpers ──────────────────────────────────────────────────
   const keyExtractor = useCallback((item) => item.id, []);
@@ -137,6 +161,17 @@ export default function HomeScreen({ navigation }) {
       </View>
 
       {/* ── Feed ── */}
+      {newItemsAvailable && newArticlesCount > 0 && (
+        <TouchableOpacity 
+          style={[styles.newItemsBanner, { backgroundColor: colors.primary }]}
+          onPress={handleNewItemsClick}
+          activeOpacity={0.9}
+        >
+          <Ionicons name="arrow-up" size={16} color="#FFF" />
+          <Text style={styles.newItemsText}>{newArticlesCount} Berita Baru Tersedia</Text>
+        </TouchableOpacity>
+      )}
+
       {isLoading && !isRefreshing ? (
         <FeedSkeleton />
       ) : (
@@ -155,6 +190,20 @@ export default function HomeScreen({ navigation }) {
               tintColor={colors.tab.active}
               colors={[colors.tab.active]}
             />
+          }
+          // Pagination
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isFetchingMore ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : !hasMore && feedArticles.length > 0 ? (
+              <View style={styles.footerEnd}>
+                <Text style={{ color: colors.text.tertiary, fontSize: 13 }}>Kamu sudah melihat semua berita.</Text>
+              </View>
+            ) : null
           }
           // Performance: virtualization
           removeClippedSubviews={true}
@@ -213,4 +262,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
   },
+  newItemsBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    gap: 8,
+  },
+  newItemsText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  footerLoader: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  footerEnd: {
+    paddingVertical: 32,
+    alignItems: 'center',
+  }
 });

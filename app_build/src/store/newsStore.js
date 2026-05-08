@@ -184,40 +184,35 @@ const validateAndFilterArticles = (articles) => {
 // Hybrid scoring: category preference + recency + popularity + behavioral signals
 
 function computeRelevanceScore(article, categoryScores, interactions) {
-  let score = 0;
+  // 1. Recency Score (Requirement: 70% Priority)
+  const ageHours = (Date.now() - new Date(article.publishedAt).getTime()) / 3600000;
+  // Sharper decay: 100 points initially, loses 5 points per hour. Zeroed after 20 hours.
+  const recencyScore = Math.max(0, 100 - ageHours * 5); 
 
-  // 1. Real-Time Category Weight → 40%
-  const realTimeCategoryWeight = Math.min(100, categoryScores[article.category] || 30);
-  score += realTimeCategoryWeight * 0.40;
+  // 2. Relevance Components (Requirement: 30% Priority)
+  // Normalized to 0-100
+  let relevanceFactor = 0;
 
-  // 2. Behavior Score (Based on read time, scroll depth, and clicks) → 20%
+  // A. Category Preference (50% of relevance sub-score)
+  const catWeight = Math.min(100, categoryScores[article.category] || 30);
+  relevanceFactor += catWeight * 0.50;
+
+  // B. Behavioral signals (30% of relevance sub-score)
   const clickCount = interactions.clicks?.[article.id] || 0;
   const readSeconds = interactions.readTime?.[article.id] || 0;
-  const scrollBoost = (interactions.scrollDepth?.[article.id] || 0) * 0.3;
-  let behaviorScore = Math.min(100, (clickCount * 10) + (readSeconds / 5) + scrollBoost);
-  if (interactions.bookmarked?.has(article.id)) behaviorScore += 50; // Bookmarking is a massive behavior signal
-  behaviorScore = Math.min(100, behaviorScore);
-  score += behaviorScore * 0.20;
+  const behaviorSub = Math.min(100, (clickCount * 20) + (readSeconds / 2));
+  relevanceFactor += behaviorSub * 0.30;
 
-  // 3. Recency Score → 15%
-  const ageHours = (Date.now() - new Date(article.publishedAt).getTime()) / 3600000;
-  const recencyScore = Math.max(0, 100 - ageHours * 2.5);
-  score += recencyScore * 0.15;
+  // C. Source Trust & Popularity (20% of relevance sub-score)
+  const trustedSources = ['BBC', 'CNN', 'Reuters', 'The Guardian', 'TechCrunch', 'detik', 'kompas', 'tempo', 'cnnindonesia', 'cnbc', 'antara'];
+  const isTrusted = trustedSources.some(s => (article.source || '').toLowerCase().includes(s.toLowerCase())) ? 100 : 50;
+  const popScore = Math.min(100, ((article.views || 0) / 500));
+  relevanceFactor += ((isTrusted * 0.6) + (popScore * 0.4)) * 0.20;
 
-  // 4. Popularity Score → 15%
-  const popularityScore = Math.min(100, (article.views / 1000) * 2);
-  score += popularityScore * 0.15;
+  // Final Hybrid Score: 70% Recency + 30% Relevance
+  const finalScore = (0.7 * recencyScore) + (0.3 * relevanceFactor);
 
-  // 5. Source Trust Score → 10%
-  const trustedSources = ['BBC', 'CNN', 'Reuters', 'The Guardian', 'TechCrunch'];
-  const sourceTrustScore = trustedSources.some(s => article.source.includes(s)) ? 100 : 50;
-  score += sourceTrustScore * 0.10;
-
-  // Penalty: "Not Interested" topics
-  const penalty = interactions.notInterestedTopics?.[article.category] || 0;
-  score -= penalty * 0.05;
-
-  return Math.max(0, Math.min(100, score));
+  return Math.max(0, Math.min(100, finalScore || 0));
 }
 
 function deduplicateArticles(articles) {
@@ -234,10 +229,16 @@ export const useNewsStore = create((set, get) => ({
   articles: [],
   isLoading: false,
   isRefreshing: false,
+  isFetchingMore: false,
+  hasMore: true,
+  cursor: null,
+  newItemsAvailable: false,
+  newArticlesCount: 0,
   error: null,
   cache: {}, // url -> { data, timestamp }
   activeTab: 'untukmu', // 'untukmu' | 'populer' | 'terbaru'
   seenArticleTitles: [], // Buffer to track last 48 seen titles
+  seenArticleIds: new Set(), // Deduplication state across pages
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -249,107 +250,137 @@ export const useNewsStore = create((set, get) => ({
     const now = Date.now();
 
     if (!forceRefresh && cached && now - cached.timestamp < CACHE_TTL) {
-      // Use cached data — rerank with current preferences
       const reranked = get()._rankArticles(cached.data, categoryScores, interactions);
-      set({ articles: reranked });
+      set({ articles: reranked, cursor: cached.cursor, hasMore: cached.hasMore });
       return;
     }
 
     set({ isLoading: true, error: null });
 
     try {
-      // Simulate network delay
-      await new Promise((r) => setTimeout(r, 1200));
-
-      // ── Multi-Source Aggregation with Fallback Strategy ──────────────
-      // Reading from our seeded database instead of the simulated array
-      let aggregatedArticles = [...REAL_DATABASE];
+      const response = await fetch('http://localhost:4000/api/v1/news');
+      if (!response.ok) throw new Error('Backend API unavailable');
       
-      try {
-        // Try to simulate fetching from Primary Source A
-        const sourceA_Data = aggregatedArticles.slice(0, 150); 
-        
-        // Try to simulate fetching from Backup Source B
-        const sourceB_Data = aggregatedArticles.slice(150);
+      const result = await response.json();
+      const aggregatedArticles = result.feed || [];
+      
+      console.log(`[Store] Fetched ${aggregatedArticles.length} articles from backend.`);
 
-        // Merge and normalize results
-        aggregatedArticles = [...sourceA_Data, ...sourceB_Data];
-      } catch (sourceError) {
-        console.warn('Sources failed, using fallback source C', sourceError);
-        aggregatedArticles = REAL_DATABASE; 
-      }
-
-      // Simulate a new article coming in from the API on refresh
-      if (forceRefresh) {
-        const randomInt = Math.floor(Math.random() * 1000);
-        aggregatedArticles.unshift({
-          id: `art-refresh-${randomInt}`,
-          title: `BBC News World Edition - Breaking Stories (${randomInt})`,
-          summary: 'This dynamically refreshed article links strictly to a valid BBC news aggregate endpoint.',
-          imageUrl: `https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=400&q=80&random=${randomInt}`,
-          source: 'BBC News',
-          sourceUrl: 'https://bbc.com',
-          url: `https://www.bbc.com/news/world`,
-          category: 'Dunia',
-          publishedAt: new Date().toISOString(), // Current time makes it highest recency
-          readTimeMinutes: 2,
-          views: 1200,
-          isHero: false,
-          tags: ['live', 'update', 'berita'],
-          embedding: null,
-        });
-      }
-
-      // Deduplicate and Validate (merges sources cleanly & strictly removes invalid URLs)
+      // Deduplicate and Validate
       const validArticles = validateAndFilterArticles(aggregatedArticles);
       const deduplicated = deduplicateArticles(validArticles);
+      
+      // Update seen IDs
+      const newSeenIds = new Set(deduplicated.map(a => a.id));
+      
       const ranked = get()._rankArticles(deduplicated, categoryScores, interactions);
 
       set({
         articles: ranked,
         isLoading: false,
-        cache: { ...get().cache, [cacheKey]: { data: deduplicated, timestamp: now } },
+        cursor: result.cursor?.last_seen_timestamp || null,
+        hasMore: result.has_more,
+        seenArticleIds: newSeenIds,
+        cache: { 
+          ...get().cache, 
+          [cacheKey]: { data: deduplicated, cursor: result.cursor?.last_seen_timestamp, hasMore: result.has_more, timestamp: now } 
+        },
       });
     } catch (err) {
+      console.error('[Store] fetchNews error:', err);
       set({ isLoading: false, error: err.message || 'Failed to load news' });
     }
   },
 
-  refreshFeed: async (categoryScores, interactions) => {
-    set({ isRefreshing: true });
+  loadMoreNews: async (categoryScores = {}, interactions = {}) => {
+    const state = get();
+    if (state.isFetchingMore || !state.hasMore || !state.cursor) return;
+
+    set({ isFetchingMore: true });
+
+    try {
+      const response = await fetch(`http://localhost:4000/api/v1/news?cursor=${encodeURIComponent(state.cursor)}`);
+      if (!response.ok) throw new Error('Pagination API failed');
+
+      const result = await response.json();
+      const newArticles = result.feed || [];
+
+      // Deduplicate against existing IDs
+      const validNew = validateAndFilterArticles(newArticles);
+      const uniqueNew = validNew.filter(a => !state.seenArticleIds.has(a.id));
+      
+      // Update seen IDs
+      const updatedSeenIds = new Set(state.seenArticleIds);
+      uniqueNew.forEach(a => updatedSeenIds.add(a.id));
+
+      // Append correctly without changing order of previous, or just rerank the new batch and append
+      const rankedNew = get()._rankArticles(uniqueNew, categoryScores, interactions);
+
+      set({
+        articles: [...state.articles, ...rankedNew],
+        cursor: result.cursor?.last_seen_timestamp || null,
+        hasMore: result.has_more,
+        seenArticleIds: updatedSeenIds,
+        isFetchingMore: false
+      });
+    } catch (err) {
+      console.warn('[Store] Load more failed:', err);
+      set({ isFetchingMore: false });
+    }
+  },
+
+  checkNewItems: async () => {
+    const state = get();
+    if (!state.articles || state.articles.length === 0) return;
     
-    // Simulate network delay
-    await new Promise(r => setTimeout(r, 800));
-
-    set((state) => {
-      // Track currently displayed titles to avoid consecutive repetition
-      const currentShownTitles = state.articles.slice(0, 12).map(a => a.title);
-      
-      // Update history buffer (keep last 48 titles)
-      const newSeenTitles = [...state.seenArticleTitles, ...currentShownTitles].slice(-48);
-      const seenSet = new Set(newSeenTitles);
-
-      // Access the full dataset pool
-      const fullPool = state.cache['main-feed']?.data || state.articles;
-
-      // Filter out items with titles we've seen recently
-      const freshCandidates = fullPool.filter(a => !seenSet.has(a.title));
-
-      // Shuffle to ensure we grab different categories/sources if tied
-      const shuffled = [...freshCandidates].sort(() => Math.random() - 0.5);
-      let reRanked = get()._rankArticles(shuffled, categoryScores, interactions);
-      
-      // Fallback: If dataset runs out of fresh items, fallback to full pool
-      if (reRanked.length < 12) {
-        reRanked = get()._rankArticles(fullPool, categoryScores, interactions);
+    // The newest article is usually the first one since it's sorted by DESC
+    const topArticle = state.articles[0];
+    try {
+      const response = await fetch(`http://localhost:4000/api/v1/news/check-new?since=${encodeURIComponent(topArticle.publishedAt)}`);
+      if (response.ok) {
+        const result = await response.json();
+        set({ 
+          newItemsAvailable: result.new_items_available,
+          newArticlesCount: result.count
+        });
       }
+    } catch (err) {
+      console.warn('[Store] Check new items failed.', err);
+    }
+  },
+
+  refreshFeed: async (categoryScores, interactions) => {
+    set({ isRefreshing: true, newItemsAvailable: false, newArticlesCount: 0 });
+    
+    try {
+      const response = await fetch('http://localhost:4000/api/v1/news/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: 'guest' }) 
+      });
       
-      return { 
-        articles: reRanked, 
-        seenArticleTitles: newSeenTitles,
-        isRefreshing: false 
-      };
-    });
+      if (response.ok) {
+        const result = await response.json();
+        const validArticles = validateAndFilterArticles(result.feed || []);
+        const deduplicated = deduplicateArticles(validArticles);
+        
+        const newSeenIds = new Set(deduplicated.map(a => a.id));
+        const ranked = get()._rankArticles(deduplicated, categoryScores, interactions);
+        
+        set({ 
+          articles: ranked, 
+          cursor: result.cursor?.last_seen_timestamp || null,
+          hasMore: result.has_more,
+          seenArticleIds: newSeenIds,
+          isRefreshing: false 
+        });
+      } else {
+        throw new Error('Refresh API failed');
+      }
+    } catch (err) {
+      console.warn('[Store] Refresh failed.', err);
+      set({ isRefreshing: false });
+    }
   },
 
   _rankArticles: (articles, categoryScores, interactions) => {
@@ -412,10 +443,20 @@ export const useNewsStore = create((set, get) => ({
 
   getForYou: (interactions, selectedCategories = []) => {
     const hidden = interactions?.notInterested || new Set();
-    return get().articles.filter((a) => 
-      !hidden.has(a.id) && 
-      (selectedCategories.length === 0 || selectedCategories.includes(a.category))
-    ).slice(0, 12);
+    const allArticles = get().articles.filter((a) => !hidden.has(a.id));
+    
+    if (selectedCategories.length === 0) return allArticles;
+
+    // Normalize selected categories for matching
+    const normalizedSelected = selectedCategories.map(c => c.toLowerCase());
+    
+    const filtered = allArticles.filter((a) => {
+      const cat = (a.category || '').toLowerCase();
+      return normalizedSelected.includes(cat);
+    });
+
+    // Fallback: If no news matches user preferences, show latest news instead of an empty screen
+    return filtered.length > 0 ? filtered : allArticles;
   },
 
   getPopular: (interactions, selectedCategories = []) => {
@@ -424,16 +465,13 @@ export const useNewsStore = create((set, get) => ({
       !hidden.has(a.id) && 
       (selectedCategories.length === 0 || selectedCategories.includes(a.category))
     );
-    return filtered.sort((a, b) => b.views - a.views).slice(0, 12);
+    return filtered.sort((a, b) => b.views - a.views);
   },
 
-  getLatest: (interactions, selectedCategories = []) => {
+  getLatest: (interactions) => {
     const hidden = interactions?.notInterested || new Set();
-    const filtered = [...get().articles].filter((a) => 
-      !hidden.has(a.id) && 
-      (selectedCategories.length === 0 || selectedCategories.includes(a.category))
-    );
-    return filtered.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)).slice(0, 12);
+    const filtered = [...get().articles].filter((a) => !hidden.has(a.id));
+    return filtered.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
   },
 
   getBookmarked: (bookmarks) => {

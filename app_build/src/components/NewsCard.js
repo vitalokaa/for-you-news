@@ -45,37 +45,39 @@ export const HeroCard = memo(({ article, onPress, onBookmark }) => {
   const isBookmarked = useUserStore((s) => s.isBookmarked(article.id));
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.92}
-      onPress={onPress}
-      style={[styles.heroCard, { borderRadius: br.xl, ...shadows.lg }, { backgroundColor: colors.surface }]}
-      accessibilityRole="button"
-      accessibilityLabel={`Buka artikel: ${article.title}`}
-    >
-      <Image
-        source={{ uri: article.imageUrl }}
-        style={[styles.heroImage, { borderRadius: br.xl }]}
-        resizeMode="cover"
-      />
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.88)']}
-        style={[StyleSheet.absoluteFill, { borderRadius: br.xl }]}
-        locations={[0.2, 0.55, 1]}
-      />
-      <View style={[styles.heroContent, { padding: spacing[4] }]}>
-        <CategoryBadge category={article.category} />
-        <Text style={[styles.heroTitle, { marginTop: spacing[2] }]} numberOfLines={3}>
-          {article.title}
-        </Text>
-        <View style={[styles.heroMeta, { marginTop: spacing[2] }]}>
-          <Text style={styles.heroMetaText}>{article.source}</Text>
-          <Text style={styles.heroMetaDot}>·</Text>
-          <Text style={styles.heroMetaText}>{formatTimeAgo(article.publishedAt)}</Text>
-          <Text style={styles.heroMetaDot}>·</Text>
-          <Ionicons name="eye-outline" size={12} color="rgba(255,255,255,0.7)" />
-          <Text style={[styles.heroMetaText, { marginLeft: 2 }]}>{formatViews(article.views)}</Text>
+    <View style={[styles.heroCardContainer, { borderRadius: br.xl, ...shadows.lg }]}>
+      <TouchableOpacity
+        activeOpacity={0.92}
+        onPress={onPress}
+        style={[styles.heroCard, { borderRadius: br.xl, backgroundColor: colors.surface }]}
+        accessibilityRole="button"
+        accessibilityLabel={`Buka artikel: ${article.title}`}
+      >
+        <Image
+          source={{ uri: article.imageUrl }}
+          style={[styles.heroImage, { borderRadius: br.xl }]}
+          resizeMode="cover"
+        />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.88)']}
+          style={[StyleSheet.absoluteFill, { borderRadius: br.xl }]}
+          locations={[0.2, 0.55, 1]}
+        />
+        <View style={[styles.heroContent, { padding: spacing[4] }]}>
+          <CategoryBadge category={article.category} />
+          <Text style={[styles.heroTitle, { marginTop: spacing[2] }]} numberOfLines={3}>
+            {article.title}
+          </Text>
+          <View style={[styles.heroMeta, { marginTop: spacing[2] }]}>
+            <Text style={styles.heroMetaText}>{article.source}</Text>
+            <Text style={styles.heroMetaDot}>·</Text>
+            <Text style={styles.heroMetaText}>{formatTimeAgo(article.publishedAt)}</Text>
+            <Text style={styles.heroMetaDot}>·</Text>
+            <Ionicons name="eye-outline" size={12} color="rgba(255,255,255,0.7)" />
+            <Text style={[styles.heroMetaText, { marginLeft: 2 }]}>{formatViews(article.views)}</Text>
+          </View>
         </View>
-      </View>
+      </TouchableOpacity>
       <TouchableOpacity
         onPress={onBookmark}
         style={styles.bookmarkBtn}
@@ -89,7 +91,7 @@ export const HeroCard = memo(({ article, onPress, onBookmark }) => {
           color={isBookmarked ? '#F59E0B' : '#FFFFFF'}
         />
       </TouchableOpacity>
-    </TouchableOpacity>
+    </View>
   );
 });
 
@@ -144,40 +146,34 @@ export const ListCard = memo(({ article, onPress, onBookmark, onNotInterested, s
         style={{ transform: [{ translateX }], opacity }}
         {...panResponder.panHandlers}
       >
-        <TouchableOpacity
-          activeOpacity={0.88}
-          onPress={onPress}
-          style={[
-            styles.listCard,
-            {
-              backgroundColor: colors.surface,
-              borderRadius: br.lg,
-              ...shadows.sm,
-              borderColor: colors.border,
-            },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel={`Buka artikel: ${article.title}`}
-        >
-          <Image
-            source={{ uri: article.imageUrl }}
-            style={[styles.listThumb, { borderRadius: br.md }]}
-            resizeMode="cover"
-          />
-          <View style={styles.listContent}>
-            <CategoryBadge category={article.category} small />
-            <Text
-              style={[styles.listTitle, { color: colors.text.primary }]}
-              numberOfLines={2}
-            >
-              {article.title}
-            </Text>
-            <View style={styles.listMeta}>
-              <Text style={[styles.listMetaText, { color: colors.text.tertiary }]}>
-                {article.source} · {formatTimeAgo(article.publishedAt)}
+        <View style={[styles.listCardContainer, { backgroundColor: colors.surface, borderRadius: br.lg, ...shadows.sm, borderColor: colors.border }]}>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={onPress}
+            style={styles.listCard}
+            accessibilityRole="button"
+            accessibilityLabel={`Buka artikel: ${article.title}`}
+          >
+            <Image
+              source={{ uri: article.imageUrl }}
+              style={[styles.listThumb, { borderRadius: br.md }]}
+              resizeMode="cover"
+            />
+            <View style={styles.listContent}>
+              <CategoryBadge category={article.category} small />
+              <Text
+                style={[styles.listTitle, { color: colors.text.primary }]}
+                numberOfLines={2}
+              >
+                {article.title}
               </Text>
+              <View style={styles.listMeta}>
+                <Text style={[styles.listMetaText, { color: colors.text.tertiary }]}>
+                  {article.source} · {formatTimeAgo(article.publishedAt)}
+                </Text>
+              </View>
             </View>
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={onBookmark}
             style={styles.listBookmark}
@@ -191,7 +187,7 @@ export const ListCard = memo(({ article, onPress, onBookmark, onNotInterested, s
               color={isBookmarked ? '#F59E0B' : colors.text.tertiary}
             />
           </TouchableOpacity>
-        </TouchableOpacity>
+        </View>
       </Animated.View>
     </View>
   );
@@ -200,9 +196,13 @@ export const ListCard = memo(({ article, onPress, onBookmark, onNotInterested, s
 // ─── Styles ─────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   // Hero
-  heroCard: {
+  heroCardContainer: {
     width: '100%',
     overflow: 'hidden',
+    position: 'relative',
+  },
+  heroCard: {
+    width: '100%',
     position: 'relative',
   },
   heroImage: {
@@ -290,11 +290,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
+  listCardContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
   listCard: {
     flexDirection: 'row',
     padding: 12,
     gap: 12,
-    borderWidth: 1,
+    flex: 1,
     alignItems: 'center',
   },
   listThumb: {

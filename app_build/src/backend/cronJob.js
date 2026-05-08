@@ -130,8 +130,8 @@ async function runDailyUpdate() {
   }
 }
 
-// Schedule Job: Run every 24 hours at midnight
-cron.schedule('0 0 * * *', () => {
+// Schedule Job: Run every 15 minutes (Requirement: 5-15 mins)
+cron.schedule('*/15 * * * *', () => {
   runDailyUpdate();
 });
 

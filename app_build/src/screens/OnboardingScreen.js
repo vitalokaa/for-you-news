@@ -1,13 +1,19 @@
-import React, { useState, useCallback, memo } from 'react';
+import React, { useState, useCallback, memo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
   ImageBackground, SafeAreaView, StatusBar, Dimensions,
+  Platform, Animated
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, colors as tokenColors } from '../theme';
 import { useUserStore } from '../store/userStore';
 import DYNAMIC_CATEGORIES from '../data/categories.json';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const IS_WEB = Platform.OS === 'web';
+const GRID_PADDING = 20;
+const GAP = 12;
 
 // Map dynamic dataset categories to UI format with fallback images
 const CATEGORIES = DYNAMIC_CATEGORIES.map((cat, index) => ({
@@ -16,51 +22,71 @@ const CATEGORIES = DYNAMIC_CATEGORIES.map((cat, index) => ({
   imageUrl: `https://picsum.photos/400/300?random=${index + 1}`
 }));
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const CARD_W = (SCREEN_W - 16 * 2 - 12) / 2;
+// ─── Category Card (Bento Style) ─────────────────────────────────────────────
+const CategoryCard = memo(({ item, index, isSelected, onPress }) => {
+  const { borderRadius: br, shadows, animation } = useTheme();
+  const scale = React.useRef(new Animated.Value(1)).current;
 
-// Removed local CATEGORIES in favor of the imported one
-// ─── Category Card ─────────────────────────────────────────────────────────
-const CategoryCard = memo(({ item, isSelected, onPress }) => {
-  const { borderRadius: br, shadows } = useTheme();
+  const handlePressIn = () => {
+    Animated.spring(scale, { toValue: 0.96, useNativeDriver: true }).start();
+  };
+  const handlePressOut = () => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
+  };
+
+  // Modern Editorial Bento Sizes
+  const isLarge = index % 5 === 0 || index % 5 === 3;
+  const cardWidth = isLarge ? SCREEN_W - GRID_PADDING * 2 : (SCREEN_W - GRID_PADDING * 2 - GAP) / 2;
+  const cardHeight = isLarge ? 160 : 120;
+
   return (
-    <TouchableOpacity
-      onPress={() => onPress(item.id)}
-      activeOpacity={0.88}
-      style={[
-        styles.categoryCard,
-        { width: CARD_W, height: CARD_W * 0.72, borderRadius: br.lg, ...shadows.md },
-        isSelected && styles.categoryCardSelected,
-      ]}
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: isSelected }}
-      accessibilityLabel={`Kategori: ${item.label}`}
-    >
-      <ImageBackground
-        source={{ uri: item.imageUrl }}
-        style={StyleSheet.absoluteFill}
-        imageStyle={{ borderRadius: br.lg }}
-        resizeMode="cover"
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <TouchableOpacity
+        onPress={() => onPress(item.id)}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={0.9}
+        style={[
+          styles.categoryCard,
+          { 
+            width: cardWidth, 
+            height: cardHeight, 
+            borderRadius: br.xl,
+            ...shadows.md 
+          },
+          isSelected && { borderColor: tokenColors.primary, borderWeight: 2 }
+        ]}
       >
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.7)']}
-          style={[StyleSheet.absoluteFill, { borderRadius: br.lg }]}
-          locations={[0.3, 1]}
-        />
-        {/* Selected overlay */}
-        {isSelected && (
-          <View style={[StyleSheet.absoluteFill, styles.selectedOverlay, { borderRadius: br.lg }]} />
-        )}
-        <View style={styles.categoryContent}>
-          <Text style={styles.categoryLabel}>{item.label}</Text>
-        </View>
-        {isSelected && (
-          <View style={styles.checkmark}>
-            <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
+        <ImageBackground
+          source={{ uri: item.imageUrl }}
+          style={StyleSheet.absoluteFill}
+          imageStyle={{ borderRadius: br.xl }}
+          resizeMode="cover"
+        >
+          <LinearGradient
+            colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.75)']}
+            style={[StyleSheet.absoluteFill, { borderRadius: br.xl }]}
+            locations={[0, 0.9]}
+          />
+          
+          <View style={styles.categoryContent}>
+            <Text style={[styles.categoryLabel, { fontSize: isLarge ? 20 : 15 }]}>
+              {item.label}
+            </Text>
           </View>
-        )}
-      </ImageBackground>
-    </TouchableOpacity>
+
+          {isSelected && (
+            <View style={[styles.selectionOverlay, { borderRadius: br.xl }]}>
+              <LinearGradient
+                colors={['rgba(26,58,110,0.4)', 'rgba(26,58,110,0.8)']}
+                style={StyleSheet.absoluteFill}
+              />
+              <Ionicons name="checkmark-circle" size={32} color="#FFFFFF" />
+            </View>
+          )}
+        </ImageBackground>
+      </TouchableOpacity>
+    </Animated.View>
   );
 });
 
@@ -70,11 +96,7 @@ export default function OnboardingScreen() {
   const { selectedCategories, toggleCategory, setOnboardingComplete } = useUserStore();
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const handleSelect = useCallback((id) => {
-    toggleCategory(id);
-  }, [toggleCategory]);
-
-  const canProceed = selectedCategories.length > 0;
+  const canProceed = selectedCategories.length >= 3;
 
   const handleComplete = useCallback(() => {
     if (!canProceed) return;
@@ -82,77 +104,80 @@ export default function OnboardingScreen() {
     setTimeout(() => {
       setShowSuccess(false);
       setOnboardingComplete(selectedCategories);
-    }, 2000);
+    }, 1500);
   }, [canProceed, selectedCategories, setOnboardingComplete]);
 
-  const renderItem = useCallback(({ item }) => (
+  const renderItem = useCallback(({ item, index }) => (
     <CategoryCard
       item={item}
+      index={index}
       isSelected={selectedCategories.includes(item.id)}
-      onPress={handleSelect}
+      onPress={toggleCategory}
     />
-  ), [selectedCategories, handleSelect]);
+  ), [selectedCategories, toggleCategory]);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="dark-content" />
 
-      <FlatList
-        data={CATEGORIES}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        ListHeaderComponent={
-          <View style={[styles.header, { paddingTop: spacing[6] }]}>
-            <Text style={[styles.title, { color: colors.text.primary }]}>
-              Pilih kategori favoritmu ! 🎯
-            </Text>
-            <Text style={[styles.subtitle, { color: tokenColors.primary }]}>
-              Pilih sebanyak yang kamu mau
-            </Text>
-          </View>
-        }
-        ListFooterComponent={
-          <View style={[styles.footer, { paddingBottom: spacing[8] }]}>
-            <TouchableOpacity
-              onPress={handleComplete}
-              activeOpacity={canProceed ? 0.85 : 1}
-              style={[
-                styles.ctaButton,
-                {
-                  backgroundColor: canProceed ? tokenColors.primary : colors.border,
-                  borderRadius: br.lg,
-                  ...shadows.md,
-                },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={`Pilih ${selectedCategories.length} kategori dan lanjutkan`}
-              accessibilityState={{ disabled: !canProceed }}
-            >
-              <Text style={[styles.ctaText, { color: canProceed ? '#FFFFFF' : colors.text.tertiary }]}>
-                Pilih{selectedCategories.length > 0 ? ` (${selectedCategories.length})` : ''}
+      <View style={styles.container}>
+        <FlatList
+          data={CATEGORIES}
+          keyExtractor={(item) => item.id}
+          numColumns={1} // We handle the layout manually for the bento effect
+          ListHeaderComponent={
+            <View style={styles.header}>
+              <Text style={[styles.brandLabel, { color: tokenColors.primary }]}>NEWS FOR YOU</Text>
+              <Text style={[styles.title, { color: colors.text.primary }]}>
+                Apa yang ingin Anda baca hari ini?
               </Text>
-            </TouchableOpacity>
-          </View>
-        }
-        columnWrapperStyle={styles.columnWrapper}
-        contentContainerStyle={styles.grid}
-        showsVerticalScrollIndicator={false}
-        renderItem={renderItem}
-      />
-
-      {/* Success Modal */}
-      {showSuccess && (
-        <View style={styles.successOverlay}>
-          <View style={[styles.successCard, { backgroundColor: colors.surface, borderRadius: br.xl, ...shadows.lg }]}>
-            <View style={[styles.successIconWrapper, { backgroundColor: '#4CAF50' }]}>
-              <Ionicons name="checkmark" size={40} color="#FFFFFF" />
+              <Text style={[styles.subtitle, { color: colors.text.secondary }]}>
+                Pilih minimal <Text style={{ fontWeight: '700', color: tokenColors.primary }}>3 kategori</Text> untuk mempersonalisasi beranda Anda.
+              </Text>
             </View>
-            <Text style={[styles.successTitle, { color: colors.text.primary }]}>Berhasil!</Text>
-            <Text style={[styles.successSubtitle, { color: colors.text.secondary }]}>
-              Kami akan menampilkan berita sesuai preferensimu
+          }
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          renderItem={renderItem}
+          ItemSeparatorComponent={() => <View style={{ height: GAP }} />}
+          ListFooterComponent={<View style={{ height: 120 }} />}
+        />
+
+        {/* Fixed Floating CTA */}
+        <LinearGradient
+          colors={['rgba(247,248,FA,0)', 'rgba(247,248,FA,0.9)', '#F7F8FA']}
+          style={styles.footerGradient}
+          locations={[0, 0.3, 0.6]}
+        >
+          <TouchableOpacity
+            onPress={handleComplete}
+            disabled={!canProceed}
+            activeOpacity={0.8}
+            style={[
+              styles.ctaButton,
+              {
+                backgroundColor: canProceed ? tokenColors.primary : '#CBD5E0',
+                borderRadius: br.full,
+                ...shadows.lg,
+              },
+            ]}
+          >
+            <Text style={styles.ctaText}>
+              {canProceed 
+                ? `Lanjutkan (${selectedCategories.length})` 
+                : `Pilih ${3 - selectedCategories.length} lagi`}
             </Text>
-          </View>
-        </View>
+            {canProceed && <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />}
+          </TouchableOpacity>
+        </LinearGradient>
+      </View>
+
+      {/* Success Animation Overlay */}
+      {showSuccess && (
+        <Animated.View style={[styles.successOverlay, { backgroundColor: 'rgba(26,58,110,0.95)' }]}>
+          <Ionicons name="sparkles" size={80} color="#FFFFFF" />
+          <Text style={styles.successText}>Menyiapkan Feed Anda...</Text>
+        </Animated.View>
       )}
     </SafeAreaView>
   );
@@ -160,105 +185,90 @@ export default function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
+  container: { flex: 1 },
+  scrollContent: {
+    paddingHorizontal: GRID_PADDING,
+    paddingTop: 40,
+  },
   header: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    marginBottom: 32,
+  },
+  brandLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 2,
+    marginBottom: 8,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-    textAlign: 'center',
-    lineHeight: 30,
+    fontFamily: Platform.OS === 'ios' ? 'Newsreader' : 'serif',
+    fontSize: 32,
+    fontWeight: '800',
+    lineHeight: 38,
+    letterSpacing: -0.5,
+    marginBottom: 12,
   },
   subtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  grid: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  columnWrapper: {
-    gap: 12,
-    justifyContent: 'space-between',
+    fontSize: 16,
+    lineHeight: 24,
+    opacity: 0.8,
   },
   categoryCard: {
     overflow: 'hidden',
     position: 'relative',
-  },
-  categoryCardSelected: {
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-  },
-  selectedOverlay: {
-    backgroundColor: 'rgba(26,58,110,0.45)',
+    backgroundColor: '#E2E8F0',
   },
   categoryContent: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    padding: 10,
+    padding: 16,
   },
   categoryLabel: {
     color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.1,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
-  checkmark: {
+  selectionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  footerGradient: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-  },
-  footer: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 140,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   ctaButton: {
-    height: 52,
+    height: 56,
+    width: IS_WEB ? 300 : '100%',
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
   },
   ctaText: {
-    fontSize: 16,
-    fontWeight: '700',
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
     letterSpacing: 0.2,
   },
   successOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-    zIndex: 100,
+    zIndex: 1000,
   },
-  successCard: {
-    width: '100%',
-    maxWidth: 320,
-    padding: 32,
-    alignItems: 'center',
-  },
-  successIconWrapper: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  successTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-  successSubtitle: {
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
+  successText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 20,
   }
 });
+

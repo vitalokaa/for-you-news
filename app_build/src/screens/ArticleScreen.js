@@ -136,36 +136,6 @@ export default function ArticleScreen({ route, navigation }) {
             </View>
           </View>
 
-          {/* User Activity Stats */}
-          <View style={[styles.activityStats, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <TouchableOpacity style={styles.activityItem} onPress={() => Alert.alert('Aktivitas', 'Lihat daftar pembaca.')}>
-              <Ionicons name="eye-outline" size={20} color={colors.text.secondary} />
-              <View>
-                <Text style={[styles.activityValue, { color: colors.text.primary }]}>{(article.views || 0) + 124}</Text>
-                <Text style={[styles.activityLabel, { color: colors.text.tertiary }]}>Dibaca</Text>
-              </View>
-            </TouchableOpacity>
-            
-            <View style={[styles.activityDivider, { backgroundColor: colors.border }]} />
-
-            <TouchableOpacity style={styles.activityItem} onPress={() => Alert.alert('Aktivitas', 'Lihat daftar penyimpanan.')}>
-              <Ionicons name="bookmark-outline" size={20} color={colors.text.secondary} />
-              <View>
-                <Text style={[styles.activityValue, { color: colors.text.primary }]}>{Math.floor((article.views || 0) * 0.12) + 14}</Text>
-                <Text style={[styles.activityLabel, { color: colors.text.tertiary }]}>Tersimpan</Text>
-              </View>
-            </TouchableOpacity>
-
-            <View style={[styles.activityDivider, { backgroundColor: colors.border }]} />
-
-            <TouchableOpacity style={styles.activityItem} onPress={() => Alert.alert('Aktivitas', 'Lihat riwayat sembunyikan.')}>
-              <Ionicons name="eye-off-outline" size={20} color={colors.text.secondary} />
-              <View>
-                <Text style={[styles.activityValue, { color: colors.text.primary }]}>{Math.floor((article.views || 0) * 0.02) + 2}</Text>
-                <Text style={[styles.activityLabel, { color: colors.text.tertiary }]}>Disembunyikan</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
 
           {/* Full Content Paragraphs */}
           <View style={styles.articleBody}>
@@ -289,35 +259,6 @@ const styles = StyleSheet.create({
   },
   authorName: {
     fontSize: 13,
-  },
-  activityStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 24,
-  },
-  activityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  activityValue: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  activityLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  activityDivider: {
-    width: 1,
-    height: '80%',
-    alignSelf: 'center',
-    marginHorizontal: 12,
   },
   articleBody: {
     paddingBottom: 8,
